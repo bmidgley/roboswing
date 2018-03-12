@@ -25,13 +25,13 @@
 #define HALF_HEIGHT 64
 
 const char* serverIndex = "<html><head><script type='text/javascript' src='https://cdnjs.cloudflare.com/ajax/libs/smoothie/1.34.0/smoothie.js'></script> <script type='text/javascript' src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.js'></script> <script type='text/Javascript'> \
-var sc = new SmoothieChart({ responsive: true, millisPerPixel: 1000, labels: { fontSize: 30, precision: 0 }, grid: { fillStyle: '#6699ff', millisPerLine: 100000, verticalSections: 10 }, yRangeFunction: function(r) { return { min: 0, max: Math.max(30, 10*Math.ceil(0.09 * r.max)) } } }); \
+var sc = new SmoothieChart({ responsive: true, millisPerPixel: 10, labels: { fontSize: 30, precision: 0 }, grid: { fillStyle: '#6699ff', millisPerLine: 100000, verticalSections: 10 } }); \
 var line1 = new TimeSeries(); var line2 = new TimeSeries(); var line3 = new TimeSeries(); \
 sc.addTimeSeries(line1, { strokeStyle:'rgb(180, 50, 0)', fillStyle:'rgba(180, 50, 0, 0.4)', lineWidth:3 }); \
-sc.addTimeSeries(line2, { strokeStyle:'rgb(255, 0, 0)', fillStyle:'rgba(255, 0, 0, 0.4)', lineWidth:3 }); \
-sc.addTimeSeries(line3, { strokeStyle:'rgb(255, 50, 0)', fillStyle:'rgba(255, 50, 0, 0.4)', lineWidth:3 }); \
+sc.addTimeSeries(line2, { strokeStyle:'rgb(0, 255, 0)', fillStyle:'rgba(255, 0, 0, 0.4)', lineWidth:3 }); \
+sc.addTimeSeries(line3, { strokeStyle:'rgb(0, 50, 255)', fillStyle:'rgba(255, 50, 0, 0.4)', lineWidth:3 }); \
 $(document).ready(function() { sc.streamTo(document.getElementById('graphcanvas1')); }); \
-setInterval(function() { $.getJSON('/stats',function(data){ line1.append(Date.now(), data.angle); line2.append(Date.now(), data.magnitude);}); }, 2000); \
+setInterval(function() { $.getJSON('/stats',function(data){ line1.append(Date.now(), data.angle); line2.append(Date.now(), data.magnitude);}); }, 100); \
 </script></head><body>  <canvas id='graphcanvas1' style='width:100%; height:75%;' /></body></html>";
 
 int angle1 = 20;
@@ -87,6 +87,13 @@ void mpu_read() {
   GyX=Wire.read()<<8|Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
   GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
   GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
+
+  uint16_t d = abs(AcX) - abs(AcY);
+  if(d < 0)
+    d = 0;
+  else if(AcX < 0)
+    d = -d;
+  snprintf(msg, sizeof(msg), "{\"angle\": %d, \"magnitude\": %d}", d, abs(AcX) + abs(AcY));
 }
 
 void mpu_display() {
@@ -321,7 +328,7 @@ void setup() {
   webServer->on("/stats", HTTP_GET, [](){
     webServer->sendHeader("Connection", "close");
     webServer->sendHeader("Access-Control-Allow-Origin", "*");
-    webServer->send(200, "application/json", "{\"magnitude\": 1, \"angle\": 1}");
+    webServer->send(200, "application/json", msg);
   });
   webServer->begin();
 
@@ -402,8 +409,6 @@ void loop() {
   *errorMsg = 0;
   *msg = 0;
 
-  ArduinoOTA.handle();
-  webServer->handleClient();
   client->loop();
 
   long now = millis();
@@ -416,11 +421,13 @@ void loop() {
 
   myservo.attach(D0);
   for (pos = 0; pos < 128; pos += 1) {
+    ArduinoOTA.handle();
+    webServer->handleClient();
     int y = angle_for(pos);
     display.setPixel(pos, HALF_HEIGHT - y);
     display.display();
     myservo.write(ymap(y));
-    delay(analogRead(A0));
+    delay(analogRead(A0)/16);
     if(flash_pressed()) break;
     mpu_read();
   }
