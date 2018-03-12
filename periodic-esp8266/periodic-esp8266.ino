@@ -24,6 +24,16 @@
 #define ACTIVATE_MAX 8
 #define HALF_HEIGHT 64
 
+const char* serverIndex = "<html><head><script type='text/javascript' src='https://cdnjs.cloudflare.com/ajax/libs/smoothie/1.34.0/smoothie.js'></script> <script type='text/javascript' src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.js'></script> <script type='text/Javascript'> \
+var sc = new SmoothieChart({ responsive: true, millisPerPixel: 1000, labels: { fontSize: 30, precision: 0 }, grid: { fillStyle: '#6699ff', millisPerLine: 100000, verticalSections: 10 }, yRangeFunction: function(r) { return { min: 0, max: Math.max(30, 10*Math.ceil(0.09 * r.max)) } } }); \
+var line1 = new TimeSeries(); var line2 = new TimeSeries(); var line3 = new TimeSeries(); \
+sc.addTimeSeries(line1, { strokeStyle:'rgb(180, 50, 0)', fillStyle:'rgba(180, 50, 0, 0.4)', lineWidth:3 }); \
+sc.addTimeSeries(line2, { strokeStyle:'rgb(255, 0, 0)', fillStyle:'rgba(255, 0, 0, 0.4)', lineWidth:3 }); \
+sc.addTimeSeries(line3, { strokeStyle:'rgb(255, 50, 0)', fillStyle:'rgba(255, 50, 0, 0.4)', lineWidth:3 }); \
+$(document).ready(function() { sc.streamTo(document.getElementById('graphcanvas1')); }); \
+setInterval(function() { $.getJSON('/stats',function(data){ line1.append(Date.now(), data.angle); line2.append(Date.now(), data.magnitude);}); }, 2000); \
+</script></head><body>  <canvas id='graphcanvas1' style='width:100%; height:75%;' /></body></html>";
+
 int angle1 = 20;
 int angle2 = 55;
 bool shouldSaveConfig = false;
@@ -52,8 +62,6 @@ WiFiClientSecure *tcpClient;
 PubSubClient *client;
 ESP8266WebServer *webServer;
 SSD1306 display(0x3c,5,4);
-
-const char* serverIndex = "<html><a href=\"/\"><img src=\"http://flamebot.com/fly.png\"/></a></html>";
 
 const int MPU_addr=0x68;  // I2C address of the MPU-6050
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
@@ -309,10 +317,10 @@ void setup() {
     webServer->sendHeader("Access-Control-Allow-Origin", "*");
     webServer->send(200, "text/html", serverIndex);
   });
-  webServer->on("/update", HTTP_POST, [](){
+  webServer->on("/stats", HTTP_GET, [](){
     webServer->sendHeader("Connection", "close");
     webServer->sendHeader("Access-Control-Allow-Origin", "*");
-    webServer->send(200, "text/plain", String(update()));
+    webServer->send(200, "application/json", "{\"magnitude\": 1, \"angle\": 1}");
   });
   webServer->begin();
 
