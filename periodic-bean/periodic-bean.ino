@@ -25,7 +25,7 @@ void loop() {
 
   // Get the current acceleration with a conversion of 3.91×10-3 g/unit.
   AccelerationReading currentAccel = Bean.getAcceleration();
-  x = map(currentAccel.xAxis, -1023, 1023, 0, 15);
+  x = map(currentAccel.xAxis, -1023, 1023, 15, 0);
   pixels.clear();
   pixels.setPixelColor(x, pixels.Color(255,255,255));
   pixels.show();
